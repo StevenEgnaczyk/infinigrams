@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/infinigrams/static/css/main.f855e6bc.css",
-    "main.js": "/infinigrams/static/js/main.a14398d1.js",
+    "main.css": "/infinigrams/static/css/main.efbb7031.css",
+    "main.js": "/infinigrams/static/js/main.a7367d93.js",
     "index.html": "/infinigrams/index.html",
-    "main.f855e6bc.css.map": "/infinigrams/static/css/main.f855e6bc.css.map",
-    "main.a14398d1.js.map": "/infinigrams/static/js/main.a14398d1.js.map"
+    "main.efbb7031.css.map": "/infinigrams/static/css/main.efbb7031.css.map",
+    "main.a7367d93.js.map": "/infinigrams/static/js/main.a7367d93.js.map"
   },
   "entrypoints": [
-    "static/css/main.f855e6bc.css",
-    "static/js/main.a14398d1.js"
+    "static/css/main.efbb7031.css",
+    "static/js/main.a7367d93.js"
   ]
 }
