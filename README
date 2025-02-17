@@ -1,0 +1,92 @@
+# Nonogram Puzzle Game
+
+A React-based implementation of Nonogram (also known as Picross or Paint by Numbers), a logic puzzle game where players fill in cells based on numerical hints to reveal a hidden picture.
+
+## Features
+
+- Multiple grid sizes (5x5 to 15x15)
+- Three difficulty levels (Easy, Medium, Hard)
+- Drag-to-fill functionality
+- Victory animation with wave effect
+- Timer tracking
+- Responsive design that scales to fit screen
+- Seed-based puzzle generation for sharing specific puzzles
+- Cross (X) marking for cells you know should be empty
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/nonogram-game.git
+cd nonogram-game
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Start the development server:
+
+```bash
+npm run dev
+```
+
+## Project Structure
+
+```
+src/
+├── components/           # React components
+│   ├── GameBoard.tsx    # Main puzzle grid component
+│   ├── DifficultySelector.tsx
+│   ├── SizeSelector.tsx
+│   └── GameSetup.tsx
+├── stores/              # State management
+│   └── gameStore.ts     # Zustand store for game state
+├── types/               # TypeScript type definitions
+│   └── gameTypes.ts
+└── utils/               # Utility functions
+    ├── puzzleGenerator.ts
+    └── timeUtils.ts
+```
+
+## How to Play
+
+1. Select your desired grid size and difficulty level
+2. Use the numerical hints on rows and columns to determine which cells should be filled
+3. Controls:
+   - Left click/drag to fill cells
+   - Right click/drag to mark cells with X
+   - Click filled cells again to mark with X
+   - Click X marked cells to clear them
+4. Complete the puzzle by correctly filling all cells according to the hints
+
+## Technologies Used
+
+- React 19
+- TypeScript
+- Tailwind CSS
+- Vite
+- Zustand (State Management)
+- SeedRandom (for reproducible puzzle generation)
+
+## Development
+
+To build for production:
+```bash
+npm run build
+```
+
+To preview production build:
+```bash
+npm run preview
+```
