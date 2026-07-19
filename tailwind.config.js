@@ -1,9 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
@@ -14,28 +11,28 @@ module.exports = {
         'game-surface': '#FFFFFF',
       },
       keyframes: {
-        'wave': {
-          '0%': { 
+        wave: {
+          '0%': {
             transform: 'scale(1)',
             backgroundColor: '#fbbf24',
             boxShadow: '0 0 5px #fbbf24',
           },
-          '50%': { 
+          '50%': {
             transform: 'scale(1.5)',
             backgroundColor: '#f59e0b',
             boxShadow: '0 0 30px #f59e0b',
           },
-          '100%': { 
+          '100%': {
             transform: 'scale(1)',
             backgroundColor: '#fbbf24',
             boxShadow: '0 0 5px #fbbf24',
-          }
-        }
+          },
+        },
       },
       animation: {
-        'wave': 'wave 4s linear infinite'
-      }
+        wave: 'wave 4s linear infinite',
+      },
     },
   },
   plugins: [],
-} 
+}

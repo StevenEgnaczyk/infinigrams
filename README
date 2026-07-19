@@ -1,92 +1,79 @@
-# Nonogram Puzzle Game
+# Infinigrams
 
-A React-based implementation of Nonogram (also known as Picross or Paint by Numbers), a logic puzzle game where players fill in cells based on numerical hints to reveal a hidden picture.
+A React-based Nonogram game (also known as Picross or Paint by Numbers). Fill cells from numerical hints to reveal a hidden picture — generate endless random puzzles, or turn your photos into puzzles.
 
 ## Features
 
-- Multiple grid sizes (5x5 to 15x15)
-- Three difficulty levels (Easy, Medium, Hard)
-- Drag-to-fill functionality
-- Victory animation with wave effect
-- Timer tracking
-- Responsive design that scales to fit screen
-- Seed-based puzzle generation for sharing specific puzzles
-- Cross (X) marking for cells you know should be empty
+- Grid sizes from 5×5 to 20×20
+- Easy / Medium / Hard difficulty
+- Drag-to-fill and right-click to mark empty cells (X)
+- Victory wave animation and live timer
+- Seed-based puzzles for sharing
+- Photo-to-nonogram generation with live preview
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js 18+
 - npm
 
 ### Installation
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/nonogram-game.git
-cd nonogram-game
-```
-
-2. Install dependencies:
-
 ```bash
 npm install
-```
-
-3. Start the development server:
-
-```bash
 npm run dev
 ```
+
+Open the URL Vite prints (usually `http://localhost:5173/infinigrams/`).
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Typecheck and build for production |
+| `npm run preview` | Preview the production build |
+| `npm run deploy` | Deploy `dist/` to GitHub Pages |
 
 ## Project Structure
 
 ```
 src/
-├── components/           # React components
-│   ├── GameBoard.tsx    # Main puzzle grid component
+├── components/           # UI components
+│   ├── GameBoard.tsx
 │   ├── DifficultySelector.tsx
 │   ├── SizeSelector.tsx
+│   ├── PhotoUploader.tsx
 │   └── GameSetup.tsx
-├── stores/              # State management
-│   └── gameStore.ts     # Zustand store for game state
-├── types/               # TypeScript type definitions
+├── stores/
+│   └── gameStore.ts      # Zustand game state
+├── types/
 │   └── gameTypes.ts
-└── utils/               # Utility functions
+└── utils/
     ├── puzzleGenerator.ts
+    ├── imageProcessor.ts
+    ├── solverUtils.ts
+    ├── debounce.ts
     └── timeUtils.ts
 ```
 
 ## How to Play
 
-1. Select your desired grid size and difficulty level
-2. Use the numerical hints on rows and columns to determine which cells should be filled
+1. Choose a grid size and difficulty, or upload a photo
+2. Use the row/column hints to decide which cells to fill
 3. Controls:
    - Left click/drag to fill cells
-   - Right click/drag to mark cells with X
+   - Right click/drag to mark empty cells with X
    - Click filled cells again to mark with X
-   - Click X marked cells to clear them
-4. Complete the puzzle by correctly filling all cells according to the hints
+   - Click X-marked cells to clear them
+4. Fill every correct cell to win
 
-## Technologies Used
+## Technologies
 
-- React 19
+- React 18
 - TypeScript
-- Tailwind CSS
 - Vite
-- Zustand (State Management)
-- SeedRandom (for reproducible puzzle generation)
-
-## Development
-
-To build for production:
-```bash
-npm run build
-```
-
-To preview production build:
-```bash
-npm run preview
-```
+- Tailwind CSS
+- Zustand
+- seedrandom (reproducible puzzles)
