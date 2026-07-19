@@ -9,13 +9,18 @@ export const GameSetup: React.FC = () => {
   const [seed, setSeed] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'random' | 'photo'>('random');
+  const [error, setError] = useState<string | null>(null);
 
-  const isSeedEntered = seed.length > 0;
+  const isSeedEntered = seed.trim().length > 0;
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     setIsGenerating(true);
+    setError(null);
     try {
-      generateNewGame(gridSize, difficulty, seed);
+      generateNewGame(gridSize, difficulty, seed.trim() || undefined);
+    } catch (err) {
+      console.error(err);
+      setError('Could not generate that puzzle. Try a different seed.');
     } finally {
       setIsGenerating(false);
     }
@@ -24,13 +29,15 @@ export const GameSetup: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-game-primary mb-6">
-          Nonogram Puzzle
-        </h1>
+        <h1 className="text-2xl font-bold text-game-primary mb-2">Infinigrams</h1>
+        <p className="text-sm text-gray-600 mb-6">
+          Endless nonogram puzzles — random grids or puzzles from your photos.
+        </p>
 
         <div className="mb-6">
           <div className="flex gap-2 border-b">
             <button
+              type="button"
               className={`px-4 py-2 ${
                 activeTab === 'random' ? 'border-b-2 border-game-secondary' : ''
               }`}
@@ -39,6 +46,7 @@ export const GameSetup: React.FC = () => {
               Random Puzzle
             </button>
             <button
+              type="button"
               className={`px-4 py-2 ${
                 activeTab === 'photo' ? 'border-b-2 border-game-secondary' : ''
               }`}
@@ -62,7 +70,7 @@ export const GameSetup: React.FC = () => {
             <section className={`space-y-2 ${isSeedEntered ? 'opacity-50 pointer-events-none' : ''}`}>
               <h2 className="text-lg font-semibold text-game-primary">Difficulty</h2>
               <DifficultySelector
-                currentDifficulty={difficulty}
+                currentDifficulty={difficulty === 'custom' ? 'medium' : difficulty}
                 onDifficultyChange={(diff) => useGameStore.setState({ difficulty: diff })}
               />
             </section>
@@ -75,7 +83,10 @@ export const GameSetup: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
 
+            {error && <p className="text-sm text-game-accent">{error}</p>}
+
             <button
+              type="button"
               onClick={handleGenerate}
               disabled={isGenerating}
               className="w-full py-3 bg-game-secondary text-white rounded-lg
@@ -90,4 +101,4 @@ export const GameSetup: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};
