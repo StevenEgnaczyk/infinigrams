@@ -4,6 +4,7 @@ import seedrandom from 'seedrandom';
 import { generateValidPuzzle, generateHints } from '../utils/puzzleGenerator';
 import { processImage } from '../utils/imageProcessor';
 import { findNextMove } from '../utils/solverUtils';
+import { decodeImageSeed, encodeImageSeed } from '../utils/seedCodec';
 
 interface GameState {
   game: NonogramGame | null;
@@ -14,46 +15,21 @@ interface GameState {
   startTime: number | null;
   endTime: number | null;
   currentSeed: string;
+  isAutoSolving: boolean;
+  solveSpeed: number;
+  isZoomedOut: boolean;
+  savedUserGrid: (boolean | 'x')[][] | null;
   generateNewGame: (size: GridSize, difficulty: Difficulty, seed?: string) => void;
   toggleCell: (row: number, col: number, nextState?: boolean | 'x') => void;
   toggleShowSolution: () => void;
   checkSolution: () => void;
   generateFromImage: (image: File, options: ImageProcessingOptions) => Promise<string>;
   generateSeedFromImage: (image: File, options: ImageProcessingOptions) => Promise<string>;
-  isAutoSolving: boolean;
-  solveSpeed: number;
   startAutoSolve: () => void;
   stopAutoSolve: () => void;
   setSolveSpeed: (speed: number) => void;
+  resetToSetup: () => void;
 }
-
-const validatePuzzle = (solution: boolean[][]): boolean => {
-  const rows = solution.length;
-  const cols = solution[0].length;
-  
-  // Check each row and column has at least one filled cell
-  const hasEmptyLine = solution.some(row => row.every(cell => !cell)) ||
-    Array(cols).fill(0).some((_, col) => solution.every(row => !row[col]));
-  
-  if (hasEmptyLine) return false;
-  
-  // Check for isolated cells (cells with no adjacent filled cells)
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      if (solution[i][j]) {
-        const hasAdjacent = (
-          (i > 0 && solution[i-1][j]) ||
-          (i < rows-1 && solution[i+1][j]) ||
-          (j > 0 && solution[i][j-1]) ||
-          (j < cols-1 && solution[i][j+1])
-        );
-        if (!hasAdjacent) return false;
-      }
-    }
-  }
-  
-  return true;
-};
 
 export const useGameStore = create<GameState>((set, get) => ({
   game: null,
@@ -66,28 +42,40 @@ export const useGameStore = create<GameState>((set, get) => ({
   currentSeed: '',
   isAutoSolving: false,
   solveSpeed: 3,
-  
+  isZoomedOut: false,
+  savedUserGrid: null,
+
+  resetToSetup: () => {
+    get().stopAutoSolve();
+    set({
+      game: null,
+      showSolution: false,
+      isVictory: false,
+      startTime: null,
+      endTime: null,
+      isZoomedOut: false,
+      savedUserGrid: null,
+    });
+  },
+
   generateNewGame: (size: GridSize, difficulty: Difficulty, seed?: string) => {
     try {
+      get().stopAutoSolve();
+
       if (seed?.startsWith('img_')) {
-        const encodedData = seed.substring(4);
-        const { g: compactGrid, t: threshold, s: [rows, cols] } = JSON.parse(atob(encodedData));
-        
-        // Convert compact representation back to grid
-        const grid = compactGrid.map(num => 
-          Array(cols).fill(0).map((_, i) => !!(num & Math.pow(2, i % 8)))
-        );
-        
+        const { grid, rows, cols } = decodeImageSeed(seed);
         const { rowHints, columnHints } = generateHints(grid);
-        
+
         const game: NonogramGame = {
           solution: grid,
-          userGrid: Array(grid.length).fill(0).map(() => Array(grid[0].length).fill(false)),
+          userGrid: Array.from({ length: grid.length }, () =>
+            Array.from({ length: grid[0].length }, () => false as boolean | 'x')
+          ),
           rowHints,
-          columnHints
+          columnHints,
         };
-        
-        set({ 
+
+        set({
           game,
           gridSize: { rows, columns: cols },
           difficulty: 'custom',
@@ -95,30 +83,31 @@ export const useGameStore = create<GameState>((set, get) => ({
           showSolution: false,
           startTime: null,
           endTime: null,
-          currentSeed: seed
+          currentSeed: seed,
+          isZoomedOut: false,
+          savedUserGrid: null,
         });
         return;
       }
 
-      // Regular random puzzle generation
-      const newSeed = seed || Math.random().toString(36).substring(7);
+      const newSeed = seed || Math.random().toString(36).substring(2, 9);
       const rng = seedrandom(newSeed);
-      const fillProbability = difficulty === 'easy' ? 0.7 : 
-                            difficulty === 'medium' ? 0.5 : 0.3;
-      
+      const fillProbability =
+        difficulty === 'easy' ? 0.7 : difficulty === 'medium' ? 0.5 : 0.3;
+
       const solution = generateValidPuzzle(size, fillProbability, rng);
       const { rowHints, columnHints } = generateHints(solution);
-      
+
       const game: NonogramGame = {
         solution,
-        userGrid: Array(size.rows).fill(0).map(() => 
-          Array(size.columns).fill(false)
+        userGrid: Array.from({ length: size.rows }, () =>
+          Array.from({ length: size.columns }, () => false as boolean | 'x')
         ),
         rowHints,
-        columnHints
+        columnHints,
       };
-      
-      set({ 
+
+      set({
         game,
         gridSize: size,
         difficulty,
@@ -126,19 +115,26 @@ export const useGameStore = create<GameState>((set, get) => ({
         showSolution: false,
         startTime: null,
         endTime: null,
-        currentSeed: newSeed
+        currentSeed: newSeed,
+        isZoomedOut: false,
+        savedUserGrid: null,
       });
     } catch (error) {
       console.error('Failed to generate game from seed:', error);
-      const fallbackSeed = Math.random().toString(36).substring(7);
-      get().generateNewGame(size, difficulty, fallbackSeed);
+      if (seed) {
+        const fallbackSeed = Math.random().toString(36).substring(2, 9);
+        get().generateNewGame(size, difficulty, fallbackSeed);
+      }
     }
   },
 
   toggleCell: (row: number, col: number, nextState?: boolean | 'x') => {
-    set(state => {
+    const { game, isVictory, showSolution, isAutoSolving } = get();
+    if (!game || isVictory || (showSolution && !isAutoSolving)) return;
+
+    set((state) => {
       if (!state.game) return state;
-      
+
       const startTime = state.startTime || Date.now();
       const newUserGrid = state.game.userGrid.map((r, rowIndex) =>
         rowIndex === row
@@ -153,112 +149,117 @@ export const useGameStore = create<GameState>((set, get) => ({
       return {
         ...state,
         startTime,
-        game: { ...state.game, userGrid: newUserGrid }
+        game: { ...state.game, userGrid: newUserGrid },
       };
     });
+
     get().checkSolution();
   },
 
   toggleShowSolution: () => {
-    set(state => {
+    get().stopAutoSolve();
+    set((state) => {
+      if (!state.game) return state;
+
       const newShowSolution = !state.showSolution;
+
+      if (newShowSolution) {
+        return {
+          ...state,
+          showSolution: true,
+          isZoomedOut: true,
+          savedUserGrid: state.game.userGrid.map((row) => [...row]),
+          game: {
+            ...state.game,
+            userGrid: state.game.solution.map((row) =>
+              row.map((cell) => (cell ? true : (false as boolean | 'x')))
+            ),
+          },
+        };
+      }
+
       return {
         ...state,
-        showSolution: newShowSolution,
-        isVictory: newShowSolution ? true : state.isVictory,
-        endTime: newShowSolution && !state.endTime ? Date.now() : state.endTime,
-        game: state.game ? {
+        showSolution: false,
+        isZoomedOut: false,
+        savedUserGrid: null,
+        game: {
           ...state.game,
-          userGrid: newShowSolution 
-            ? state.game.solution.map(row => row.map(cell => cell ? true : false))
-            : state.game.userGrid
-        } : null
+          userGrid:
+            state.savedUserGrid?.map((row) => [...row]) ??
+            state.game.userGrid,
+        },
       };
     });
   },
 
   checkSolution: () => {
-    set(state => {
-      if (!state.game) return state;
+    set((state) => {
+      if (!state.game || state.isVictory) return state;
 
       const isCorrect = state.game.solution.every((row, i) =>
-        row.every((cell, j) => 
-          (cell && state.game!.userGrid[i][j] === true) ||
-          (!cell && state.game!.userGrid[i][j] !== true)
+        row.every(
+          (cell, j) =>
+            (cell && state.game!.userGrid[i][j] === true) ||
+            (!cell && state.game!.userGrid[i][j] !== true)
         )
       );
 
-      if (isCorrect && !state.isVictory) {
-        return {
-          ...state,
-          isVictory: true,
-          endTime: Date.now()
-        };
-      }
+      if (!isCorrect) return state;
 
-      return state;
+      return {
+        ...state,
+        isVictory: true,
+        endTime: Date.now(),
+        isAutoSolving: false,
+        isZoomedOut: true,
+      };
     });
   },
 
-  generateSeedFromImage: async (image: File, options: ImageProcessingOptions): Promise<string> => {
-    try {
-      const grid = await processImage(image, options);
-      // Convert grid to more compact representation
-      const compactGrid = grid.map(row => 
-        row.reduce((acc, cell, i) => acc + (cell ? Math.pow(2, i % 8) : 0), 0)
-      );
-      
-      const seedData = {
-        g: compactGrid,
-        t: options.threshold,
-        s: [options.maxSize.rows, options.maxSize.columns]
-      };
-      
-      const seed = `img_${btoa(JSON.stringify(seedData))}`;
-      return seed;
-    } catch (error) {
-      console.error('Failed to generate seed:', error);
-      throw error;
-    }
+  generateSeedFromImage: async (
+    image: File,
+    options: ImageProcessingOptions
+  ): Promise<string> => {
+    const grid = await processImage(image, options);
+    return encodeImageSeed(grid, options.threshold);
   },
 
   generateFromImage: async (image: File, options: ImageProcessingOptions) => {
-    try {
-      const grid = await processImage(image, options);
-      const { rowHints, columnHints } = generateHints(grid);
-      
-      const size: GridSize = {
-        rows: grid.length,
-        columns: grid[0].length
-      };
-      
-      const imageSeed = await get().generateSeedFromImage(image, options);
-      
-      const game: NonogramGame = {
-        solution: grid,
-        userGrid: Array(size.rows).fill(0).map(() => 
-          Array(size.columns).fill(false)
-        ),
-        rowHints,
-        columnHints
-      };
-      
-      set({ 
-        game,
-        gridSize: size,
-        difficulty: 'custom',
-        isVictory: false,
-        showSolution: false,
-        startTime: null,
-        endTime: null,
-        currentSeed: imageSeed
-      });
-      
-      return imageSeed;
-    } catch (error) {
-      console.error('Failed to process image:', error);
-      throw error;
-    }
+    get().stopAutoSolve();
+    const grid = await processImage(image, options);
+    const { rowHints, columnHints } = generateHints(grid);
+
+    const size: GridSize = {
+      rows: grid.length,
+      columns: grid[0].length,
+    };
+
+    const imageSeed = encodeImageSeed(grid, options.threshold);
+
+    const game: NonogramGame = {
+      solution: grid,
+      userGrid: Array.from({ length: size.rows }, () =>
+        Array.from({ length: size.columns }, () => false as boolean | 'x')
+      ),
+      rowHints,
+      columnHints,
+    };
+
+    set({
+      game,
+      gridSize: size,
+      difficulty: 'custom',
+      isVictory: false,
+      showSolution: false,
+      startTime: null,
+      endTime: null,
+      currentSeed: imageSeed,
+      isZoomedOut: false,
+      savedUserGrid: null,
+    });
+
+    return imageSeed;
   },
 
   setSolveSpeed: (speed: number) => {
@@ -269,46 +270,39 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     if (!state.game || state.showSolution || state.isVictory) return;
 
-    // Toggle solving state
-    set(state => ({ isAutoSolving: !state.isAutoSolving }));
-    
-    if (!get().isAutoSolving) return; // If we just turned it off, return
+    if (state.isAutoSolving) {
+      get().stopAutoSolve();
+      return;
+    }
 
-    // Start with zoomed out view
-    set(state => ({
-      ...state,
-      isZoomedOut: true
-    }));
+    set({ isAutoSolving: true, isZoomedOut: true });
 
-    // Start the solving process
     const solveStep = async () => {
       const currentState = get();
       if (!currentState.isAutoSolving || !currentState.game) return;
 
-      // Find the next move
       const move = findNextMove(currentState.game);
       if (!move) {
-        // No more moves found, stop solving
         get().stopAutoSolve();
         return;
       }
 
-      // Apply the move with a delay based on speed setting
       const baseDelay = 1000;
       const delay = baseDelay / (currentState.solveSpeed * 2);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      if (get().isAutoSolving) { // Check if we're still solving
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      if (get().isAutoSolving) {
         get().toggleCell(move.row, move.col, move.value);
-        // Schedule next move
-        solveStep();
+        if (get().isAutoSolving && !get().isVictory) {
+          void solveStep();
+        }
       }
     };
 
-    solveStep();
+    void solveStep();
   },
 
   stopAutoSolve: () => {
     set({ isAutoSolving: false });
   },
-})); 
+}));

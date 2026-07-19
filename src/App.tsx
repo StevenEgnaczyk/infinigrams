@@ -1,12 +1,11 @@
-import { type ReactElement } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { useGameStore } from './stores/gameStore';
 import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import { formatTime } from './utils/timeUtils';
-import React from 'react';
 
 const App = (): ReactElement => {
-  const { 
+  const {
     game,
     isVictory,
     showSolution,
@@ -17,8 +16,23 @@ const App = (): ReactElement => {
     solveSpeed,
     setSolveSpeed,
     isAutoSolving,
-    currentSeed
-  } = useGameStore(state => state);
+    currentSeed,
+    startAutoSolve,
+    resetToSetup,
+  } = useGameStore();
+
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!startTime || endTime) return;
+
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [startTime, endTime]);
+
+  const elapsedMs = startTime
+    ? (endTime ?? now) - startTime
+    : 0;
 
   return (
     <div className="min-h-screen bg-game-background">
@@ -26,21 +40,24 @@ const App = (): ReactElement => {
         <GameSetup />
       ) : (
         <div className="h-screen flex flex-col">
-          <header className="flex items-center justify-between px-4 py-2 bg-white shadow-md">
-            <button 
-              onClick={() => useGameStore.setState({ game: null })}
+          <header className="flex items-center justify-between gap-2 px-4 py-2 bg-white shadow-md">
+            <button
+              onClick={resetToSetup}
               className="px-4 py-2 text-game-primary hover:bg-gray-100 rounded-lg transition-colors"
             >
               ← Back
             </button>
-            <div className="text-xl font-mono text-game-primary">
-              {startTime ? formatTime(endTime ? endTime - startTime : Date.now() - startTime) : '00:00'}
+            <div className="text-xl font-mono text-game-primary tabular-nums">
+              {formatTime(elapsedMs)}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {isAutoSolving && (
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-game-primary">Speed:</label>
+                  <label className="text-sm text-game-primary" htmlFor="solve-speed">
+                    Speed
+                  </label>
                   <input
+                    id="solve-speed"
                     type="range"
                     min="1"
                     max="5"
@@ -57,17 +74,17 @@ const App = (): ReactElement => {
                 {showSolution ? 'Hide Solution' : 'Reveal Solution'}
               </button>
               <button
-                onClick={() => useGameStore.getState().startAutoSolve()}
-                className="px-4 py-2 text-game-secondary hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={startAutoSolve}
+                className="px-4 py-2 text-game-secondary hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                 disabled={showSolution || isVictory}
               >
                 {isAutoSolving ? 'Stop Solving' : 'Auto Solve'}
               </button>
             </div>
           </header>
-          
+
           <main className="flex-1 relative overflow-hidden pt-8">
-            <GameBoard 
+            <GameBoard
               game={game}
               onCellClick={toggleCell}
               isVictory={isVictory}
@@ -83,4 +100,4 @@ const App = (): ReactElement => {
   );
 };
 
-export default App; 
+export default App;

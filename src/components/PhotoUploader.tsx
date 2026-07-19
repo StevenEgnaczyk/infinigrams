@@ -1,67 +1,87 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { type ImageProcessingOptions } from '../types/gameTypes';
 import { processImage } from '../utils/imageProcessor';
-import debounce from 'lodash/debounce';
+import { debounce } from '../utils/debounce';
 
-export const PhotoUploader: React.FC = () => {
+export const PhotoUploader = () => {
   const [threshold, setThreshold] = useState(128);
   const [maxSize, setMaxSize] = useState({ rows: 15, columns: 15 });
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [previewGrid, setPreviewGrid] = useState<boolean[][] | null>(null);
   const [generatedSeed, setGeneratedSeed] = useState<string | null>(null);
-  const generateFromImage = useGameStore(state => state.generateFromImage);
-  const generateSeedFromImage = useGameStore(state => state.generateSeedFromImage);
+  const [error, setError] = useState<string | null>(null);
 
-  // Debounced preview update
-  const debouncedUpdatePreview = useCallback(
-    debounce(async (image: File, options: ImageProcessingOptions) => {
-      try {
-        const grid = await processImage(image, options);
-        setPreviewGrid(grid);
-      } catch (error) {
-        console.error('Failed to generate preview:', error);
-      }
-    }, 150),
+  const generateFromImage = useGameStore((state) => state.generateFromImage);
+  const generateSeedFromImage = useGameStore(
+    (state) => state.generateSeedFromImage
+  );
+
+  const debouncedUpdatePreview = useMemo(
+    () =>
+      debounce(async (image: File, options: ImageProcessingOptions) => {
+        try {
+          const grid = await processImage(image, options);
+          setPreviewGrid(grid);
+          setError(null);
+        } catch (err) {
+          console.error('Failed to generate preview:', err);
+          setError('Could not process that image. Try another file.');
+        }
+      }, 150),
     []
   );
 
   useEffect(() => {
-    if (selectedImage) {
-      const imageUrl = URL.createObjectURL(selectedImage);
-      setImagePreviewUrl(imageUrl);
-      
-      const options: ImageProcessingOptions = { threshold, maxSize };
-      debouncedUpdatePreview(selectedImage, options);
+    return () => {
+      debouncedUpdatePreview.cancel();
+    };
+  }, [debouncedUpdatePreview]);
 
-      return () => {
-        URL.revokeObjectURL(imageUrl);
-        debouncedUpdatePreview.cancel();
-      };
-    }
+  useEffect(() => {
+    if (!selectedImage) return;
+
+    const imageUrl = URL.createObjectURL(selectedImage);
+    setImagePreviewUrl(imageUrl);
+
+    const options: ImageProcessingOptions = { threshold, maxSize };
+    debouncedUpdatePreview(selectedImage, options);
+
+    return () => {
+      URL.revokeObjectURL(imageUrl);
+      debouncedUpdatePreview.cancel();
+    };
   }, [threshold, maxSize, selectedImage, debouncedUpdatePreview]);
 
-  const handleThresholdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newThreshold = Number(e.target.value);
-    setThreshold(newThreshold);
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedImage(file);
-  };
+  const handleImageUpload = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setSelectedImage(file);
+      setGeneratedSeed(null);
+      setError(null);
+    },
+    []
+  );
 
   const handleGenerate = async () => {
     if (!selectedImage) return;
     setIsGenerating(true);
+    setError(null);
     try {
       const options: ImageProcessingOptions = { threshold, maxSize };
       await generateFromImage(selectedImage, options);
-    } catch (error) {
-      console.error('Failed to process image:', error);
+    } catch (err) {
+      console.error('Failed to process image:', err);
+      setError('Failed to create puzzle from image.');
     } finally {
       setIsGenerating(false);
     }
@@ -73,8 +93,10 @@ export const PhotoUploader: React.FC = () => {
       const options: ImageProcessingOptions = { threshold, maxSize };
       const seed = await generateSeedFromImage(selectedImage, options);
       setGeneratedSeed(seed);
-    } catch (error) {
-      console.error('Failed to generate seed:', error);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to generate seed:', err);
+      setError('Failed to generate seed.');
     }
   };
 
@@ -89,7 +111,7 @@ export const PhotoUploader: React.FC = () => {
           min="0"
           max="255"
           value={threshold}
-          onChange={handleThresholdChange}
+          onChange={(e) => setThreshold(Number(e.target.value))}
           className="w-full"
         />
       </div>
@@ -104,7 +126,12 @@ export const PhotoUploader: React.FC = () => {
             min="5"
             max="20"
             value={maxSize.rows}
-            onChange={(e) => setMaxSize({ ...maxSize, rows: Number(e.target.value) })}
+            onChange={(e) =>
+              setMaxSize({
+                ...maxSize,
+                rows: Math.min(20, Math.max(5, Number(e.target.value) || 5)),
+              })
+            }
             className="w-full px-3 py-2 border rounded"
             placeholder="Rows"
           />
@@ -113,7 +140,12 @@ export const PhotoUploader: React.FC = () => {
             min="5"
             max="20"
             value={maxSize.columns}
-            onChange={(e) => setMaxSize({ ...maxSize, columns: Number(e.target.value) })}
+            onChange={(e) =>
+              setMaxSize({
+                ...maxSize,
+                columns: Math.min(20, Math.max(5, Number(e.target.value) || 5)),
+              })
+            }
             className="w-full px-3 py-2 border rounded"
             placeholder="Columns"
           />
@@ -132,11 +164,15 @@ export const PhotoUploader: React.FC = () => {
                  hover:file:bg-game-secondary/90"
       />
 
+      {error && <p className="text-sm text-game-accent">{error}</p>}
+
       {imagePreviewUrl && previewGrid && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="border border-gray-300 rounded p-4">
-              <h3 className="text-sm font-medium text-game-primary mb-2">Original Image</h3>
+              <h3 className="text-sm font-medium text-game-primary mb-2">
+                Original Image
+              </h3>
               <div className="relative" style={{ aspectRatio: '1' }}>
                 <img
                   src={imagePreviewUrl}
@@ -147,36 +183,40 @@ export const PhotoUploader: React.FC = () => {
             </div>
 
             <div className="border border-gray-300 rounded p-4">
-              <h3 className="text-sm font-medium text-game-primary mb-2">Nonogram Grid</h3>
-              <div className="grid gap-px bg-gray-200" 
-                   style={{ 
-                     gridTemplateColumns: `repeat(${previewGrid[0].length}, 1fr)`,
-                     aspectRatio: '1'
-                   }}>
+              <h3 className="text-sm font-medium text-game-primary mb-2">
+                Nonogram Grid
+              </h3>
+              <div
+                className="grid gap-px bg-gray-200"
+                style={{
+                  gridTemplateColumns: `repeat(${previewGrid[0].length}, 1fr)`,
+                  aspectRatio: '1',
+                }}
+              >
                 {previewGrid.map((row, i) =>
                   row.map((cell, j) => (
                     <div
                       key={`${i}-${j}`}
-                      className={`${cell ? 'bg-black' : 'bg-white'}`}
+                      className={cell ? 'bg-black' : 'bg-white'}
                     />
                   ))
                 )}
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-4">
             <button
-              onClick={handleGenerate}
+              onClick={() => void handleGenerate()}
               disabled={isGenerating}
               className="flex-1 py-3 bg-game-secondary text-white rounded-lg
                        hover:bg-game-secondary/90 transition-colors disabled:opacity-50"
             >
               {isGenerating ? 'Creating Puzzle...' : 'Create Puzzle'}
             </button>
-            
+
             <button
-              onClick={handleGenerateSeed}
+              onClick={() => void handleGenerateSeed()}
               className="flex-1 py-3 bg-game-primary text-white rounded-lg
                        hover:bg-game-primary/90 transition-colors"
             >
@@ -186,8 +226,10 @@ export const PhotoUploader: React.FC = () => {
 
           {generatedSeed && (
             <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-              <p className="text-sm font-medium text-game-primary mb-2">Generated Seed:</p>
-              <code className="block p-2 bg-white rounded border select-all">
+              <p className="text-sm font-medium text-game-primary mb-2">
+                Generated Seed:
+              </p>
+              <code className="block p-2 bg-white rounded border select-all break-all text-xs">
                 {generatedSeed}
               </code>
             </div>
@@ -196,4 +238,4 @@ export const PhotoUploader: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

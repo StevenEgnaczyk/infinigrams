@@ -147,19 +147,6 @@ function analyzeLine(
   return moves;
 }
 
-function checkLineComplete(line: (boolean | 'x')[], hints: number[]): boolean {
-  const blocks = line.reduce((acc, cell, i) => {
-    if (cell === true && (!acc.length || line[i - 1] !== true)) {
-      acc.push(1);
-    } else if (cell === true) {
-      acc[acc.length - 1]++;
-    }
-    return acc;
-  }, [] as number[]);
-  
-  return hints.length === blocks.length && hints.every((h, i) => h === blocks[i]);
-}
-
 export function findNextMove(game: NonogramGame): SolveMove | null {
   const moves: SolveMove[] = [];
   

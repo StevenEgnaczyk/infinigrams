@@ -1,4 +1,4 @@
-import { GridSize, ImageProcessingOptions } from '../types/gameTypes';
+import { ImageProcessingOptions } from '../types/gameTypes';
 
 export const processImage = async (
   image: File,
@@ -35,42 +35,32 @@ const convertImageToGrid = (
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Failed to get canvas context');
 
-  // Calculate scaled dimensions while maintaining aspect ratio
   const scale = Math.min(
     maxSize.columns / img.width,
     maxSize.rows / img.height
   );
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
 
   canvas.width = width;
   canvas.height = height;
 
-  // Use better image rendering
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  
-  // Draw and process image
   ctx.drawImage(img, 0, 0, width, height);
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-  const grid: boolean[][] = Array(height);
-  
-  // Pre-calculate row arrays for better performance
+
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const grid: boolean[][] = Array.from({ length: height }, () =>
+    Array(width)
+  );
+
   for (let y = 0; y < height; y++) {
-    grid[y] = new Array(width);
-    const row = grid[y];
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      // Convert to grayscale and compare with threshold
-      const gray = (
-        data[i] * 0.299 +
-        data[i + 1] * 0.587 +
-        data[i + 2] * 0.114
-      );
-      row[x] = gray < threshold;
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      grid[y][x] = gray < threshold;
     }
   }
 
   return grid;
-}; 
+};
