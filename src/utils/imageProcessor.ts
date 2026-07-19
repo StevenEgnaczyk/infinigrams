@@ -1,4 +1,4 @@
-import { GridSize, ImageProcessingOptions } from '../types/gameTypes';
+import { ImageProcessingOptions } from '../types/gameTypes';
 
 export const processImage = async (
   image: File,

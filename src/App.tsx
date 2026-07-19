@@ -1,12 +1,11 @@
-import { type ReactElement } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { useGameStore } from './stores/gameStore';
 import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import { formatTime } from './utils/timeUtils';
-import React from 'react';
 
 const App = (): ReactElement => {
-  const { 
+  const {
     game,
     isVictory,
     showSolution,
@@ -17,8 +16,21 @@ const App = (): ReactElement => {
     solveSpeed,
     setSolveSpeed,
     isAutoSolving,
-    currentSeed
-  } = useGameStore(state => state);
+    currentSeed,
+    startAutoSolve,
+    resetToSetup,
+  } = useGameStore();
+
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!startTime || endTime) return;
+
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [startTime, endTime]);
+
+  const elapsedMs = startTime ? (endTime ?? now) - startTime : 0;
 
   return (
     <div className="min-h-screen bg-game-background">
@@ -26,21 +38,22 @@ const App = (): ReactElement => {
         <GameSetup />
       ) : (
         <div className="h-screen flex flex-col">
-          <header className="flex items-center justify-between px-4 py-2 bg-white shadow-md">
-            <button 
-              onClick={() => useGameStore.setState({ game: null })}
+          <header className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-white shadow-md">
+            <button
+              onClick={resetToSetup}
               className="px-4 py-2 text-game-primary hover:bg-gray-100 rounded-lg transition-colors"
             >
               ← Back
             </button>
-            <div className="text-xl font-mono text-game-primary">
-              {startTime ? formatTime(endTime ? endTime - startTime : Date.now() - startTime) : '00:00'}
-            </div>
-            <div className="flex items-center gap-2">
+            <div className="text-xl font-mono text-game-primary">{formatTime(elapsedMs)}</div>
+            <div className="flex flex-wrap items-center gap-2">
               {isAutoSolving && (
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-game-primary">Speed:</label>
+                  <label className="text-sm text-game-primary" htmlFor="solve-speed">
+                    Speed:
+                  </label>
                   <input
+                    id="solve-speed"
                     type="range"
                     min="1"
                     max="5"
@@ -57,24 +70,29 @@ const App = (): ReactElement => {
                 {showSolution ? 'Hide Solution' : 'Reveal Solution'}
               </button>
               <button
-                onClick={() => useGameStore.getState().startAutoSolve()}
-                className="px-4 py-2 text-game-secondary hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={startAutoSolve}
+                className="px-4 py-2 text-game-secondary hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                 disabled={showSolution || isVictory}
               >
                 {isAutoSolving ? 'Stop Solving' : 'Auto Solve'}
               </button>
             </div>
           </header>
-          
-          <main className="flex-1 relative overflow-hidden pt-8">
-            <GameBoard 
+
+          {currentSeed && (
+            <div className="px-4 py-1 bg-white/80 text-xs text-gray-600 border-b border-gray-200 truncate">
+              Seed: <code className="select-all">{currentSeed}</code>
+            </div>
+          )}
+
+          <main className="flex-1 relative overflow-hidden pt-2">
+            <GameBoard
               game={game}
               onCellClick={toggleCell}
               isVictory={isVictory}
               showSolution={showSolution}
               startTime={startTime}
               endTime={endTime}
-              currentSeed={currentSeed}
             />
           </main>
         </div>
@@ -83,4 +101,4 @@ const App = (): ReactElement => {
   );
 };
 
-export default App; 
+export default App;
